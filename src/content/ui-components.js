@@ -1,7 +1,7 @@
-// src/content/ui-components.js - Модуль UI-компонентов для расширения PerplexiTransfer
+// src/content/ui-components.js - Модуль UI-компонентов для расширения
 
 /**
- * Класс для создания и управления интерфейсными элементами расширения
+ * Класс для создания и управления интерфейсными элементами
  */
 class UIComponents {
   /**
@@ -31,6 +31,18 @@ class UIComponents {
     toggleBtn.innerHTML = '&lt;&lt;';
     toggleBtn.title = 'Свернуть/развернуть панель';
     toggleBtn.className = 'pt-toggle-btn';
+    toggleBtn.style = `
+      align-self: flex-end;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 4px;
+      width: 24px;
+      height: 24px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 5px;
+      padding: 0;
+    `;
     toggleBtn.onclick = () => this.togglePanel(panel);
     
     panel.appendChild(toggleBtn);
@@ -157,159 +169,6 @@ class UIComponents {
       notification.style.animation = 'slideOut 0.3s forwards';
       setTimeout(() => notification.remove(), 300);
     }, duration);
-  }
-  
-  /**
-   * Создает модальное окно с содержимым
-   * @param {string} title - Заголовок окна
-   * @param {HTMLElement|string} content - Содержимое (HTML или строка)
-   * @param {Array} actions - Массив кнопок действий
-   * @returns {HTMLElement} DOM-элемент модального окна
-   */
-  static createModal(title, content, actions = []) {
-    // Создаем затемнение
-    const overlay = document.createElement('div');
-    overlay.className = 'pt-modal-overlay';
-    overlay.style = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 10002;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
-    
-    // Создаем модальное окно
-    const modal = document.createElement('div');
-    modal.className = 'pt-modal';
-    modal.style = `
-      background: white;
-      border-radius: 8px;
-      width: 80%;
-      max-width: 600px;
-      max-height: 90vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    `;
-    
-    // Создаем заголовок
-    const header = document.createElement('div');
-    header.className = 'pt-modal-header';
-    header.style = `
-      padding: 16px 20px;
-      border-bottom: 1px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    `;
-    
-    const titleElement = document.createElement('h3');
-    titleElement.textContent = title;
-    titleElement.style = `
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-    `;
-    
-    const closeButton = document.createElement('button');
-    closeButton.innerHTML = '&times;';
-    closeButton.style = `
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #718096;
-      transition: color 0.2s;
-    `;
-    closeButton.onmouseenter = () => closeButton.style.color = '#1a202c';
-    closeButton.onmouseleave = () => closeButton.style.color = '#718096';
-    closeButton.onclick = () => overlay.remove();
-    
-    header.appendChild(titleElement);
-    header.appendChild(closeButton);
-    
-    // Создаем содержимое
-    const body = document.createElement('div');
-    body.className = 'pt-modal-body';
-    body.style = `
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    `;
-    
-    if (typeof content === 'string') {
-      body.innerHTML = content;
-    } else {
-      body.appendChild(content);
-    }
-    
-    // Создаем футер с кнопками действий
-    const footer = document.createElement('div');
-    footer.className = 'pt-modal-footer';
-    footer.style = `
-      padding: 16px 20px;
-      border-top: 1px solid #e2e8f0;
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-    `;
-    
-    actions.forEach(action => {
-      const button = document.createElement('button');
-      button.textContent = action.text;
-      button.style = `
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.2s;
-        ${action.primary ? 
-          'background: #4299e1; color: white; border: none;' : 
-          'background: #e2e8f0; color: #4a5568; border: none;'
-        }
-      `;
-      button.onclick = () => {
-        action.onClick();
-        if (action.closeModal) {
-          overlay.remove();
-        }
-      };
-      footer.appendChild(button);
-    });
-    
-    // Собираем модальное окно
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
-    overlay.appendChild(modal);
-    
-    // Добавляем на страницу
-    document.body.appendChild(overlay);
-    
-    // Предотвращаем закрытие по клику на модальном окне
-    modal.onclick = e => e.stopPropagation();
-    
-    // Закрываем по клику на затемнении
-    overlay.onclick = e => {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    };
-    
-    return overlay;
   }
 }
 

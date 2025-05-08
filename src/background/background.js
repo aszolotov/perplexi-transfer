@@ -1,115 +1,109 @@
-// src/background/background.js - Фоновый скрипт для обработки межтабовых и общих событий
+// src/background/background.js - Фоновый скрипт для межтабовой коммуникации
 
 /**
- * Обработчик установки расширения
+ * Фоновый скрипт расширения PerplexiTransfer
+ * Обрабатывает межтабовую коммуникацию и события жизненного цикла
  */
-chrome.runtime.onInstalled.addListener(details => {
-  if (details.reason === 'install') {
-    // Первая установка
-    chrome.storage.local.set({
-      'settings': {
-        defaultFormat: 'json',
-        darkMode: false,
-        compactMode: false,
-        hotkeys: {
-          copyText: 'Ctrl+Shift+C',
-          copyJson: 'Ctrl+Shift+J',
-          continueChat: 'Ctrl+Shift+N'
-        }
-      },
-      'dialogHistory': []
-    });
-    
-    // Открываем страницу руководства
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('src/welcome/welcome.html')
-    });
-  } else if (details.reason === 'update') {
-    // Обновление расширения
-    // Здесь можно добавить логику миграции настроек, если нужно
-  }
-});
 
-/**
- * Обработчик сообщений от контент-скриптов и других частей расширения
- */
+// Прослушивание сообщений от content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'continueInNewTab') {
-    // Логика для открытия нового таба и продолжения диалога
-    chrome.tabs.create({ url: 'https://www.perplexity.ai/' }, newTab => {
-      // Сохраняем ID таба для последующей передачи данных
-      chrome.storage.local.set({ 'targetTabId': newTab.id });
-    });
-    
-    return true; // Важно для асинхронных ответов
+  console.log('Получено сообщение:', message);
+  
+  // Обработка запроса на открытие нового чата с контекстом
+  if (message.action === 'openNewChat') {
+    openNewPerplexityChat(message.context, message.source);
+    sendResponse({ success: true });
   }
   
-  if (message.action === 'checkForContinueData') {
-    // Проверка, есть ли данные для продолжения диалога
-    chrome.storage.local.get(['continueData', 'targetTabId'], data => {
-      if (data.continueData && sender.tab.id === data.targetTabId) {
-        // Отправляем данные в контент-скрипт
-        sendResponse({ 
-          status: 'success',
-          data: data.continueData
-        });
-        
-        // Очищаем данные после использования
-        chrome.storage.local.remove(['continueData', 'targetTabId']);
-      } else {
-        sendResponse({ status: 'noData' });
+  // Обработка запроса на сохранение диалога
+  if (message.action === 'saveDialog') {
+    storeDialogData(message.dialogData);
+    sendResponse({ success: true });
+  }
+  
+  // Получение сохраненного диалога
+  if (message.action === 'getStoredDialog') {
+    chrome.storage.local.get(['storedDialog'], (result) => {
+      sendResponse({ data: result.storedDialog || null });
+    });
+    return true; // Для асинхронного sendResponse
+  }
+  
+  // Обработка запроса на получение настроек
+  if (message.action === 'getSettings') {
+    getSettings().then(settings => {
+      sendResponse({ settings });
+    });
+    return true; // Для асинхронного sendResponse
+  }
+});
+
+/**
+ * Открывает новый чат Perplexity с предоставленным контекстом
+ * @param {string} context - Контекст для нового чата
+ * @param {string} sourceTabId - ID исходной вкладки
+ */
+function openNewPerplexityChat(context, sourceTabId) {
+  // Открываем новую вкладку с Perplexity
+  chrome.tabs.create({ url: 'https://www.perplexity.ai/' }, (newTab) => {
+    // Сохраняем контекст в локальное хранилище для доступа в новой вкладке
+    chrome.storage.local.set({
+      pendingContext: {
+        text: context,
+        sourceTabId: sourceTabId,
+        targetTabId: newTab.id,
+        timestamp: Date.now()
       }
     });
-    
-    return true; // Важно для асинхронных ответов
-  }
-});
-
-/**
- * Обработчик нажатия на иконку расширения
- */
-chrome.action.onClicked.addListener(tab => {
-  // Проверяем, что мы на странице Perplexity
-  if (tab.url.includes('perplexity.ai')) {
-    // Отправляем сообщение для открытия панели управления
-    chrome.tabs.sendMessage(tab.id, { action: 'togglePanel' });
-  } else {
-    // Если не на Perplexity, открываем новую вкладку
-    chrome.tabs.create({ url: 'https://www.perplexity.ai/' });
-  }
-});
-
-/**
- * Обработчик создания нового таба
- */
-chrome.tabs.onCreated.addListener(tab => {
-  // Логика для нового таба, если нужно
-});
-
-/**
- * Обработчик активации таба
- */
-chrome.tabs.onActivated.addListener(activeInfo => {
-  // Обновляем состояние расширения для активного таба
-  chrome.tabs.get(activeInfo.tabId, tab => {
-    if (tab.url && tab.url.includes('perplexity.ai')) {
-      chrome.action.setIcon({
-        path: {
-          "16": "assets/icons/icon16.png",
-          "48": "assets/icons/icon48.png",
-          "128": "assets/icons/icon128.png"
-        },
-        tabId: tab.id
-      });
-    } else {
-      chrome.action.setIcon({
-        path: {
-          "16": "assets/icons/icon16-disabled.png",
-          "48": "assets/icons/icon48-disabled.png",
-          "128": "assets/icons/icon128-disabled.png"
-        },
-        tabId: tab.id
-      });
-    }
   });
+}
+
+/**
+ * Сохраняет данные диалога для повторного использования
+ * @param {Object} dialogData - Данные диалога в формате JSON
+ */
+function storeDialogData(dialogData) {
+  chrome.storage.local.set({ storedDialog: dialogData }, () => {
+    console.log('Диалог сохранен в локальном хранилище');
+  });
+}
+
+/**
+ * Получает настройки расширения
+ * @returns {Promise<Object>} Настройки расширения
+ */
+async function getSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get({
+      // Настройки по умолчанию
+      autoExpandCodeBlocks: true,
+      enableDarkTheme: false,
+      defaultExportFormat: 'json',
+      buttonPosition: 'right',
+      autoSaveHistory: true,
+      maxHistoryItems: 20
+    }, (settings) => {
+      resolve(settings);
+    });
+  });
+}
+
+// Обработка установки расширения
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    // Инициализация настроек по умолчанию
+    chrome.storage.sync.set({
+      autoExpandCodeBlocks: true,
+      enableDarkTheme: false,
+      defaultExportFormat: 'json',
+      buttonPosition: 'right',
+      autoSaveHistory: true,
+      maxHistoryItems: 20
+    });
+    
+    // Открываем страницу с инструкциями после установки
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('src/options/welcome.html')
+    });
+  }
 });
